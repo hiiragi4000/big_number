@@ -5,6 +5,7 @@
 #include<vector>
 #include<iostream>
 #include<iomanip>
+#include<type_traits>
 
 using namespace std;
 
@@ -51,8 +52,9 @@ vector<complex<double>> fft(const vector<complex<double>> &x, const int &inv){
 
 typedef long long ll;
 typedef unsigned long long ull;
-static const ll neko[] = {1ll, 100000ll, 10000000000ll, 1000000000000000ll};
-class ubign{
+static const ll neko[] = {1ll, 10ll, 100ll, 1000ll, 10000ll, 100000ll, 1000000ll, 10000000ll, 100000000ll, 1000000000ll, 10000000000ll, 100000000000ll, 1000000000000ll, 10000000000000ll, 100000000000000ll, 1000000000000000ll};
+template<int dg> class ubign{
+    static_assert(1<=dg && dg<=5, "Usage: \"ubign<[dg]> var;\", where 1 <= dg <= 5");
 private:
     vector<ll> a;
     void resize(const size_t &n){
@@ -74,20 +76,20 @@ private:
             return;
         }
         for(int i=0; i<(int)size()-1; i++){
-            if(a[i] >= neko[1]){
-                a[i+1] += a[i]/neko[1];
-                a[i] %= neko[1];
+            if(a[i] >= neko[dg]){
+                a[i+1] += a[i]/neko[dg];
+                a[i] %= neko[dg];
             }
         }
-        while(a.back() >= neko[1]){
-            a.push_back(a.back()/neko[1]);
-            a[size()-2] %= neko[1];
+        while(a.back() >= neko[dg]){
+            a.push_back(a.back()/neko[dg]);
+            a[size()-2] %= neko[dg];
         }
     }
     void borrow(const int &start = 0){
         for(int i=start; i<(int)size()-1; i++){
             if(a[i] < 0){
-                a[i] += neko[1];
+                a[i] += neko[dg];
                 a[i+1]--;
             }
         }
@@ -131,20 +133,20 @@ private:
         if((int)b.size() == 1){
             ll inu = 0;
             for(int i=(int)size()-1; i>=0; i--){
-                inu = (inu%b[0])*neko[1] + a[i];
+                inu = (inu%b[0])*neko[dg] + a[i];
                 q[i] = inu / b[0];
             }
             q.trunc();
             return make_pair(q, ubign(inu%b[0]));
         }else{
             ubign r = (*this);
-            ll inu = b[b.size()-1]*neko[1] + b[b.size()-2];
+            ll inu = b[b.size()-1]*neko[dg] + b[b.size()-2];
             for(int i=(int)q.size()-1; i>=0; i--){
                 ll musume = 0;
                 for(int j=(int)r.size()-1; j>=i+(int)b.size()-2; j--){
-                    musume = neko[1]*musume + r[j];
+                    musume = neko[dg]*musume + r[j];
                 }
-                ll ub = min(musume/inu+1, neko[1]), lb = musume/(inu+1);
+                ll ub = min(musume/inu+1, neko[dg]), lb = musume/(inu+1);
                 ubign slime;
                 while(ub-lb > 1){
                     ll mid = (ub+lb) / 2;
@@ -171,11 +173,11 @@ private:
 public:
     ubign(const char *s = ""){
         a.clear();
-        for(int i=strlen(s)-1; i>=0; i-=5){
+        for(int i=(int)strlen(s)-1; i>=0; i-=dg){
             ll d = 0;
-            for(int j=0, v=1; i-j>=0&&j<=4; j++, v*=10){
+            for(int j=0; i-j>=0&&j<=dg-1; j++){
                 assert(isdigit(s[i-j]));
-                d += (s[i-j]-48)*v;
+                d += (s[i-j]-48)*neko[j];
             }
             a.push_back(d);
         }
@@ -185,13 +187,13 @@ public:
     ubign(const ull &n){
         if(n == 0){
             a.clear();
-        }else if(n < (ull)neko[1]){
+        }else if(n < (ull)neko[dg]){
             a.resize(1);
             a[0] = (ll)n;
         }else{
             a.resize(2);
-            a[0] = (ll)(n%(ull)neko[1]);
-            a[1] = (ll)(n/(ull)neko[1]);
+            a[0] = (ll)(n%(ull)neko[dg]);
+            a[1] = (ll)(n/(ull)neko[dg]);
             carry();
         }
     }
@@ -281,7 +283,7 @@ public:
             a.push_back(1ll);
         }else{
             a[0]++;
-            if(a[0] >= neko[1]){
+            if(a[0] >= neko[dg]){
                 carry();
             }
         }
@@ -373,12 +375,12 @@ public:
         if((int)b.size()<=64 || (int)(size()-b.size())<=64){
             return osoi_warizan(b);
         }
-        ll d = b[b.size()-1] * neko[1];
+        ll d = b[b.size()-1] * neko[dg];
         if((int)b.size() >= 2){
             d += b[b.size()-2];
         }
         ubign x[2], kitune = ubign(2) << (size()+10);
-        x[0] = ubign(neko[3]/(d+1)) << (size()-b.size()+9);
+        x[0] = ubign(neko[3*dg]/(d+1)) << (size()-b.size()+9);
         for(int i=0; ; i++){
             x[(i+1)&1] = (x[i&1]*(kitune - b*x[i&1])) >> (size()+10);
             if(!memcmp(&x[0][5], &x[1][5], (x[0].size()-5)*sizeof(ll))){
@@ -424,7 +426,7 @@ public:
         }else{
             out << b(b.size()-1);
             for(int i=(int)b.size()-2; i>=0; i--){
-                out << setw(5) << setfill('0') << b(i);
+                out << setw(dg) << setfill('0') << b(i);
             }
             return out;
         }
