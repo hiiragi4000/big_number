@@ -87,6 +87,9 @@ private:
         }
     }
     void borrow(const int &start = 0){
+        if(a.empty()){
+            return;
+        }
         for(int i=start; i<(int)size()-1; i++){
             if(a[i] < 0){
                 a[i] += neko[dg];
