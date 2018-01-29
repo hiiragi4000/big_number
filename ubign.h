@@ -53,6 +53,7 @@ vector<complex<double>> fft(const vector<complex<double>> &x, const int &inv){
 typedef long long ll;
 typedef unsigned long long ull;
 static const ll neko[] = {1ll, 10ll, 100ll, 1000ll, 10000ll, 100000ll, 1000000ll, 10000000ll, 100000000ll, 1000000000ll, 10000000000ll, 100000000000ll, 1000000000000ll, 10000000000000ll, 100000000000000ll, 1000000000000000ll};
+// ubign<d>: 10^d-based unsigned big integer
 template<int dg> class ubign{
     static_assert(1<=dg && dg<=5, "Usage: \"ubign<[dg]> var;\", where 1 <= dg <= 5");
 private:
@@ -66,6 +67,7 @@ private:
     const ll &operator [](const int &i) const{
         return a[i];
     }
+    // remove leading zeros
     void trunc(){
         int realsize = size();
         for(; realsize>0 && a[realsize-1]==0; realsize--);
@@ -99,6 +101,7 @@ private:
         assert(a.back() >= 0);
         trunc();
     }
+    // slow multiplication, taking O(mn)-time
     ubign osoi_kakezan(const ubign &b) const{
         if(!size() || !b.size()){
             return 0;
@@ -111,6 +114,7 @@ private:
         result.carry();
         return result;
     }
+    // check if (*this)<<start <= b
     bool kiseki(const ubign &b, const int &start) const{
         if(start+size() < b.size()){
             return true;
@@ -126,6 +130,7 @@ private:
         }
         return true;
     }
+    // slow division, taking O(mn)-time
     pair<ubign, ubign> osoi_warizan(const ubign &b) const{
         assert(b.size());
         if(size() < b.size()){
@@ -151,6 +156,7 @@ private:
                 }
                 ll ub = min(musume/inu+1, neko[dg]), lb = musume/(inu+1);
                 ubign slime;
+                // the "fake" binary search: ub-lb is either 1 or 2
                 while(ub-lb > 1){
                     ll mid = (ub+lb) / 2;
                     slime = ubign(mid)*b;
@@ -254,6 +260,7 @@ public:
     bool operator <=(const ubign &b) const{
         return !((*this) > b);
     }
+    // multiply by 10^{n*dg}
     ubign operator <<(const int &n) const{
         if(n <= -(int)size()){
             return 0;
@@ -267,6 +274,7 @@ public:
         }
         return result;
     }
+    // divide by 10^{n*dg}
     ubign operator >>(const int &n) const{
         return (*this) << (-n);
     }
@@ -345,6 +353,7 @@ public:
         if((int)size()<=16 || (int)b.size()<=16){
             return osoi_kakezan(b);
         }
+        // O(n log n)-time multiplication
         ubign result;
         int n = size()+b.size()-1;
         result.resize(n);
@@ -375,15 +384,19 @@ public:
         if((*this) < b){
             return make_pair(0, *this);
         }
+        // this if-statement is important to defeat python's integer type in performance
         if((int)b.size()<=64 || (int)(size()-b.size())<=64){
             return osoi_warizan(b);
         }
+        // O(n (log n)^2)-time division
         ll d = b[b.size()-1] * neko[dg];
         if((int)b.size() >= 2){
             d += b[b.size()-2];
         }
         ubign x[2], kitune = ubign(2) << (size()+10);
         x[0] = ubign(neko[3*dg]/(d+1)) << (size()-b.size()+9);
+        // Newton's method: x(i+1) := x(i)*(2-b*x(i)) to make x(i) -> 1/b
+        // the for-loop is guaranteed to break within O(log n) iterations
         for(int i=0; ; i++){
             x[(i+1)&1] = (x[i&1]*(kitune - b*x[i&1])) >> (size()+10);
             if(!memcmp(&x[0][5], &x[1][5], (x[0].size()-5)*sizeof(ll))){
