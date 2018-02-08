@@ -441,21 +441,18 @@ public:
         if((int)b.size() >= 2){
             b0 += b[b.size()-2];
         }
-        ubign x = ubign(neko[3*dg]/(b0+1));
+        ubign x = ubign(neko[3*dg]/(b0+1))<<1;
         int k = 1;
         for(; ; k++){
             int d = (1<<(k-1))+2;
-            ubign eta = b>>((int)b.size()-d);
-            if((int)b.size() > d){
-                eta++;
-            }
-            ubign two=ubign(2)<<(d-1), zeta=((eta*x)>>(d/2+1))+1;
+            ubign eta = (b>>((int)b.size()-d))+1;
+            ubign two=ubign(2)<<(d-1), zeta=((eta*x)>>(d/2+2))+1;
             x = (x*(two-zeta))>>(d/2);
             if(1<<(k-1) >= (int)(size()-b.size()+1)){
                 break;
             }
         }
-        ubign q=((*this)*x)>>((1<<(k-1))+1+b.size()), r=(*this)-b*q;
+        ubign q=((*this)*x)>>((1<<(k-1))+2+b.size()), r=(*this)-b*q;
         if(r >= b){
             q++, r-=b;
         }
