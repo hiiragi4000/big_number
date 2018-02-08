@@ -6,26 +6,26 @@
 #include<iostream>
 #include<iomanip>
 #include<type_traits>
-
 using namespace std;
 
-#define FFT_LEN 131072
+#define cd complex<double>
+#define ll long long
+#define llu unsigned long long
 #ifndef M_PI
 const double M_PI = acos(-1);
 #endif
-
-vector<complex<double>> fft(const vector<complex<double>> &x, const int &inv){
-    static bool fft_ready = false;
-    static complex<double> loli[FFT_LEN];
+vector<cd> fft(const vector<cd> &x, const int &inv){
+    static int fft_len = 0;
+    static vector<cd> loli;
     int n = x.size();
-    assert((n&-n)==n && n<=FFT_LEN && abs(inv)==1);
-    if(!fft_ready){
-        for(int k=0; k<FFT_LEN; k++){
-            loli[k] = exp(complex<double>(0, 2*M_PI*k/FFT_LEN));
+    assert((n&-n)==n && abs(inv)==1);
+    if(fft_len < n){
+        loli.resize(fft_len=n);
+        for(int k=0; k<fft_len; k++){
+            loli[k] = exp(cd(0, 2*M_PI*k/fft_len));
         }
-        fft_ready = true;
     }
-    vector<complex<double>> X = x;
+    vector<cd> X = x;
     for(int i=1, j=0; i<n; i++){
         for(int k=n>>1; !((j^=k)&k); k>>=1);
         if(i < j){
@@ -33,10 +33,10 @@ vector<complex<double>> fft(const vector<complex<double>> &x, const int &inv){
         }
     }
     for(int i=2; i<=n; i*=2){
-        int d = (inv==1)? FFT_LEN-(FFT_LEN/i): FFT_LEN/i;
+        int d = (inv==1)? fft_len-(fft_len/i): fft_len/i;
         for(int j=0; j<n; j+=i){
-            for(int k=0, a=0; k<i/2; k++, a=(a+d)%FFT_LEN){
-                complex<double> s = X[j+k], t = loli[a] * X[j+k+i/2];
+            for(int k=0, a=0; k<i/2; k++, a=(a+d)%fft_len){
+                cd s=X[j+k], t=loli[a]*X[j+k+i/2];
                 X[j+k] = s + t;
                 X[j+k+i/2] = s - t;
             }
@@ -50,10 +50,55 @@ vector<complex<double>> fft(const vector<complex<double>> &x, const int &inv){
     return X;
 }
 
-typedef long long ll;
-typedef unsigned long long ull;
+#define NTT_LEN (1<<27)
+static const ll nttp = (15<<27)+1;
+vector<ll> ntt(const vector<ll> &x, const int &inv){
+    static const ll pr = 31;
+    static int ntt_len = 0;
+    static vector<ll> loli;
+    int n = x.size();
+    assert((n&-n)==n && n<=NTT_LEN && abs(inv)==1);
+    for(int i=0; i<=n-1; i++) assert(0<=x[i] && x[i]<=nttp-1);
+    if(ntt_len < n){
+        loli.resize(ntt_len=n);
+        loli[0] = 1;
+        if(ntt_len >= 2){
+            loli[1] = 1;
+            for(int i=1; i<=15; i++){
+                loli[1] = pr*loli[1]%nttp;
+            }
+            for(int i=(1<<27)/ntt_len; i>1; i>>=1){
+                loli[1] = loli[1]*loli[1]%nttp;
+            }
+            for(int i=2; i<ntt_len; i++){
+                loli[i] = loli[1]*loli[i-1]%nttp;
+            }
+        }
+    }
+    vector<ll> X = x;
+    for(int i=1, j=0; i<n; i++){
+        for(int k=n>>1; !((j^=k)&k); k>>=1);
+        if(i < j) swap(X[i], X[j]);
+    }
+    for(int i=2; i<=n; i*=2){
+        int d = (inv==1)? ntt_len-(ntt_len/i): ntt_len/i;
+        for(int j=0; j<n; j+=i){
+            for(int k=0, a=0; k<i/2; k++, a=(a+d)%ntt_len){
+                ll s = X[j+k], t = loli[a]*X[j+k+i/2]%nttp;
+                X[j+k] = (s+t)%nttp;
+                X[j+k+i/2] = (s-t+nttp)%nttp;
+            }
+        }
+    }
+    if(inv == -1){
+        for(int i=0; i<n; i++){
+            X[i] = X[i]*(nttp-(nttp-1)/n)%nttp;
+        }
+    }
+    return X;
+}
+
 static const ll neko[] = {1ll, 10ll, 100ll, 1000ll, 10000ll, 100000ll, 1000000ll, 10000000ll, 100000000ll, 1000000000ll, 10000000000ll, 100000000000ll, 1000000000000ll, 10000000000000ll, 100000000000000ll, 1000000000000000ll};
-// ubign<d>: 10^d-based unsigned big integer
 template<int dg> class ubign{
     static_assert(1<=dg && dg<=5, "Usage: \"ubign<[dg]> var;\", where 1 <= dg <= 5");
 private:
@@ -67,7 +112,6 @@ private:
     const ll &operator [](const int &i) const{
         return a[i];
     }
-    // remove leading zeros
     void trunc(){
         int realsize = size();
         for(; realsize>0 && a[realsize-1]==0; realsize--);
@@ -101,7 +145,6 @@ private:
         assert(a.back() >= 0);
         trunc();
     }
-    // slow multiplication, taking O(mn)-time
     ubign osoi_kakezan(const ubign &b) const{
         if(!size() || !b.size()){
             return 0;
@@ -114,7 +157,6 @@ private:
         result.carry();
         return result;
     }
-    // check if (*this)<<start <= b
     bool kiseki(const ubign &b, const int &start) const{
         if(start+size() < b.size()){
             return true;
@@ -130,7 +172,6 @@ private:
         }
         return true;
     }
-    // slow division, taking O(mn)-time
     pair<ubign, ubign> osoi_warizan(const ubign &b) const{
         assert(b.size());
         if(size() < b.size()){
@@ -156,7 +197,6 @@ private:
                 }
                 ll ub = min(musume/inu+1, neko[dg]), lb = musume/(inu+1);
                 ubign slime;
-                // the "fake" binary search: ub-lb is either 1 or 2
                 while(ub-lb > 1){
                     ll mid = (ub+lb) / 2;
                     slime = ubign(mid)*b;
@@ -193,16 +233,16 @@ public:
         trunc();
     }
     ubign(const string &s): ubign(s.c_str()){}
-    ubign(const ull &n){
+    ubign(const llu &n){
         if(n == 0){
             a.clear();
-        }else if(n < (ull)neko[dg]){
+        }else if(n < (llu)neko[dg]){
             a.resize(1);
             a[0] = (ll)n;
         }else{
             a.resize(2);
-            a[0] = (ll)(n%(ull)neko[dg]);
-            a[1] = (ll)(n/(ull)neko[dg]);
+            a[0] = (ll)(n%(llu)neko[dg]);
+            a[1] = (ll)(n/(llu)neko[dg]);
             carry();
         }
     }
@@ -260,7 +300,6 @@ public:
     bool operator <=(const ubign &b) const{
         return !((*this) > b);
     }
-    // multiply by 10^{n*dg}
     ubign operator <<(const int &n) const{
         if(n <= -(int)size()){
             return 0;
@@ -274,9 +313,14 @@ public:
         }
         return result;
     }
-    // divide by 10^{n*dg}
+    ubign operator <<=(const int &n){
+        return (*this) = (*this) << n;
+    }
     ubign operator >>(const int &n) const{
         return (*this) << (-n);
+    }
+    ubign operator >>=(const int &n){
+        return (*this) = (*this) >> n;
     }
     ubign tail(const int &n) const{
         assert(n >= 0);
@@ -353,25 +397,31 @@ public:
         if((int)size()<=16 || (int)b.size()<=16){
             return osoi_kakezan(b);
         }
-        // O(n log n)-time multiplication
         ubign result;
         int n = size()+b.size()-1;
         result.resize(n);
         for(; (n&-n)!=n; n+=n&-n);
-        vector<complex<double>> x(n), y(n);
-        for(int i=0; i<(int)size(); i++){
-            x[i] = a[i];
-        }
-        for(int i=0; i<(int)b.size(); i++){
-            y[i] = b[i];
-        }
+        vector<cd> x(n), y(n);
+        for(int i=0; i<(int)size(); i++) x[i] = a[i];
+        for(int i=0; i<(int)b.size(); i++) y[i] = b[i];
         x = fft(x, 1); y = fft(y, 1);
-        for(int i=0; i<n; i++){
-            x[i] *= y[i];
-        }
+        for(int i=0; i<n; i++) x[i] *= y[i];
         x = fft(x, -1);
-        for(int i=0; i<(int)result.size(); i++){
-            result[i] = (ll)floor(x[i].real()+.5);
+        if(n*neko[2*dg] < 1e14){
+            for(int i=0; i<(int)result.size(); i++){
+                result[i] = (ll)floor(x[i].real()+.5);
+            }
+        }else{
+            vector<ll> xi(n), eta(n);
+            for(int i=0; i<(int)size(); i++) xi[i] = a[i];
+            for(int i=0; i<(int)b.size(); i++) eta[i] = b[i];
+            xi = ntt(xi, 1); eta = ntt(eta, 1);
+            for(int i=0; i<n; i++) xi[i] = xi[i]*eta[i]%nttp;
+            xi = ntt(xi, -1);
+            for(int i=0; i<(int)result.size(); i++){
+                ll q = floor((x[i].real()-xi[i])/nttp+.5);
+                result[i] = q*nttp+xi[i];
+            }
         }
         result.carry();
         return result;
@@ -384,28 +434,30 @@ public:
         if((*this) < b){
             return make_pair(0, *this);
         }
-        // this if-statement is important to defeat python's integer type in performance
         if((int)b.size()<=64 || (int)(size()-b.size())<=64){
             return osoi_warizan(b);
         }
-        // O(n (log n)^2)-time division
-        ll d = b[b.size()-1] * neko[dg];
+        ll b0 = b[b.size()-1] * neko[dg];
         if((int)b.size() >= 2){
-            d += b[b.size()-2];
+            b0 += b[b.size()-2];
         }
-        ubign x[2], kitune = ubign(2) << (size()+10);
-        x[0] = ubign(neko[3*dg]/(d+1)) << (size()-b.size()+9);
-        // Newton's method: x(i+1) := x(i)*(2-b*x(i)) to make x(i) -> 1/b
-        // the for-loop is guaranteed to break within O(log n) iterations
-        for(int i=0; ; i++){
-            x[(i+1)&1] = (x[i&1]*(kitune - b*x[i&1])) >> (size()+10);
-            if(!memcmp(&x[0][5], &x[1][5], (x[0].size()-5)*sizeof(ll))){
+        ubign x = ubign(neko[3*dg]/(b0+1));
+        int k = 1;
+        for(; ; k++){
+            int d = (1<<(k-1))+2;
+            ubign eta = b>>((int)b.size()-d);
+            if((int)b.size() > d){
+                eta++;
+            }
+            ubign two=ubign(2)<<(d-1), zeta=((eta*x)>>(d/2+1))+1;
+            x = (x*(two-zeta))>>(d/2);
+            if(1<<(k-1) >= (int)(size()-b.size()+1)){
                 break;
             }
         }
-        ubign q = ((*this)*x[0]) >> (size()+10), r = (*this) - b*q;
+        ubign q=((*this)*x)>>((1<<(k-1))+1+b.size()), r=(*this)-b*q;
         if(r >= b){
-            q++; r -= b;
+            q++, r-=b;
         }
         return make_pair(q, r);
     }
@@ -448,3 +500,6 @@ public:
         }
     }
 };
+#undef cd
+#undef ll
+#undef llu
